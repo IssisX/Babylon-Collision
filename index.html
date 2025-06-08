@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Collision Simulator (Babylon.js)</title>
+    <style>
+        /* ... existing styles ... */
+        #error-log-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: calc(100% - 40px); /* Adjust as needed */
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255, 0, 0, 0.7); /* Red background for errors */
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 5px;
+            z-index: 10000; /* Ensure it's on top */
+            display: none; /* Initially hidden, shown if errors occur */
+        }
+        #error-log-container .info {
+            background: rgba(0, 128, 255, 0.7); /* Blue background for info */
+            margin-bottom: 2px;
+            padding: 3px;
+        }
+        #error-log-container .error {
+            background: rgba(200, 0, 0, 0.9); /* Darker red for actual errors */
+            margin-bottom: 2px;
+            padding: 3px;
+            font-weight: bold;
+        }
+    #error-log-container {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: calc(100vw - 20px);
+        max-width: 600px;
+        max-height: 120px;
+        overflow-y: auto;
+        background: rgba(255, 0, 0, 0.7);
+        color: white;
+        font-family: monospace;
+        border-radius: 5px;
+        z-index: 10000;
+        display: none;
+        padding: 8px;
+        font-size: 11px;
+    }
+
+        :root {
+            --glow-color: #ffdeb8;
+            --panel-bg: rgba(20, 22, 36, 0.75);
+            --border-color: rgba(255, 255, 255, 0.15);
+            --text-primary: #e1e9ff;
+            --text-secondary: #a9bce2;
+            --accent-color: #8fa8ff;
+        }
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000005;
+            color: var(--text-primary);
+            font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        .ui-panel {
+            position: absolute;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 0px;
+        }
+        #info {
+        bottom: 10px;
+        left: 10px;
+        max-width: 280px;
+            text-align: left;
+        }
+        #info h1 { font-size: 1.4rem; margin: 0 0 5px 0; font-weight: 700; color: var(--glow-color); text-shadow: 0 0 10px #ffae52;}
+        #info p { font-size: 0.85rem; margin: 0; color: #d1d1d1;}
+
+        #selection-info {
+        bottom: 10px;
+        left: calc(10px + 280px + 10px);
+        width: 250px;
+            display: none;
+        }
+        #selection-info h3 { font-size: 0.95em; margin-top: 0; color: var(--text-primary); }
+        #selection-info p { font-size: 0.8em; margin: 4px 0; }
+        #selection-info span { font-weight: bold; color: var(--accent-color); }
+
+        #controls-container {
+        bottom: 10px;
+        right: 10px;
+        width: 280px;
+        }
+        .control-group {
+        padding: 10px;
+        margin-bottom: 10px;
+            background: rgba(0,0,0,0.2); border-radius: 8px;
+        }
+        .control-group h3 { font-size: 1.0em; margin: 0 0 12px 0; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 8px; letter-spacing: 0.5px;}
+        .control-row { display: grid; grid-template-columns: 45px 1fr 45px; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .control-row label { font-size: 0.8em; text-align: right;}
+        .control-row input[type="range"] { width: 100%; -webkit-appearance: none; background: #333; height: 3px; border-radius: 3px; outline: none;}
+        .control-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--accent-color); border-radius: 50%; cursor: pointer;}
+    .control-row input[type="number"] { padding: 4px; font-size: 0.75em; width: 100%; box-sizing: border-box; background: #111420; border: 1px solid #454d66; color: white; border-radius: 4px; text-align: center;}
+        .button-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+    button { padding: 8px; font-size: 0.85em; border-radius: 5px; border: 1px solid #777; font-weight: bold; cursor: pointer; transition: all 0.2s ease; background: #3a3f51; color: white; }
+        button:hover { background: #4a5069; border-color: #999; }
+        #play-pause-button { background: #4caf50; border-color: #66bb6a; grid-column: 1 / -1; }
+        #play-pause-button.paused { background: #c62828; border-color: #ef5350; }
+    select { padding: 6px; font-size: 0.85em; width: 100%; border-radius: 5px; border: 1px solid #454d66; background-color: #111420; color: white; }
+
+    .panel-header {
+        padding: 5px 8px;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 0px;
+    }
+    .panel-header.collapsed-header {
+        border-bottom: none;
+    }
+
+    .panel-header span:first-child {
+        font-weight: bold;
+    }
+
+    .panel-toggle-icon {
+        font-weight: bold;
+        font-size: 1.2em;
+        padding: 0 5px;
+    }
+
+    .panel-content {
+        padding: 10px;
+    }
+    .panel-content.collapsed {
+        display: none;
+    }
+    #controls-container .panel-content {
+        max-height: calc(50vh - 20px - 30px - 10px);
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+        <div id="error-log-container"><div id="error-log-header" style="padding-bottom:5px; border-bottom:1px solid white; margin-bottom:5px;">Initialization Log:</div></div>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="info" class="ui-panel">
+        <div class="panel-header">
+            <span>Info</span>
+            <span class="panel-toggle-icon">-</span>
+        </div>
+        <div class="panel-content">
+            <h1>Cosmic Collision Simulator</h1>
+            <p>Select a scenario, press play, and create chaos. Click on objects to view their stats.</p>
+        </div>
+    </div>
+
+    <div id="selection-info" class="ui-panel">
+        <div class="panel-header">
+            <span>Selection Stats</span>
+            <span class="panel-toggle-icon">-</span>
+        </div>
+        <div class="panel-content">
+            <!-- Content will be populated by JS -->
+        </div>
+    </div>
+
+    <div id="controls-container" class="ui-panel">
+        <div class="panel-header">
+            <span>Controls</span>
+            <span class="panel-toggle-icon">-</span>
+        </div>
+        <div class="panel-content">
+            <!-- Existing control groups will be dynamically added here by setupUI -->
+        </div>
+    </div>
+
+    <div id="physics-engine-info" class="ui-panel" style="bottom: 10px; left: calc(10px + 280px + 10px + 250px + 10px); width: auto; padding: 8px; font-size: 0.8em;">
+        Physics: Ammo.js
+    </div>
+
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <script src="https://cdn.babylonjs.com/ammo.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/postprocesses/babylonjs.postProcess.min.js"></script>
+    <script src="https://cdn.babylonjs.com/proceduralTextures/babylonjs.proceduralTextures.min.js"></script>
+    <script>
+    const errorLogContainer = document.getElementById('error-log-container');
+    let errorLogHeader = document.getElementById('error-log-header');
+
+    function showLog() {
+        if (errorLogContainer) errorLogContainer.style.display = 'block';
+    }
+
+    function logToScreen(message, type = 'info') {
+        showLog();
+        if (errorLogContainer) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.className = type;
+            errorLogContainer.appendChild(p);
+            errorLogContainer.scrollTop = errorLogContainer.scrollHeight;
+        }
+        if (type === 'error') {
+            console.error(message);
+        } else {
+            console.log(message);
+        }
+    }
+
+    logToScreen("Script execution started.", "info");
+
+    if (typeof BABYLON === 'undefined') {
+        logToScreen("FATAL: BABYLON object not found. Babylon.js script might have failed to load or is blocked.", "error");
+    } else {
+        logToScreen("BABYLON object found.", "info");
+    }
+
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, glowLayer;
+        let celestialBodies = [];
+        let initialCelestialStates = {};
+        let simulationState = 'PAUSED', timeScale = 1;
+        let selectedObject = null;
+
+        const G = 6.674;
+        const KINETIC_ENERGY_SCALE = 50000;
+
+    const MIN_IMPACT_ENERGY_COLOR = 20000;
+    const MID1_IMPACT_ENERGY_COLOR = 75000;
+    const MID2_IMPACT_ENERGY_COLOR = 150000;
+    const MAX_IMPACT_ENERGY_COLOR = 250000;
+    const EXTREME_IMPACT_ENERGY = 100000;
+
+    function getEnergyColor(energy, minE, midE1, midE2, maxE) {
+        let r, g, b;
+        if (energy <= minE) { [r, g, b] = [0.7, 0.2, 0.0]; }
+        else if (energy <= midE1) { const t = (energy - minE) / (midE1 - minE); r = 0.7 + t * (1.0 - 0.7); g = 0.2 + t * (0.6 - 0.2); b = 0.0; }
+        else if (energy <= midE2) { const t = (energy - midE1) / (midE2 - midE1); r = 1.0; g = 0.6 + t * (1.0 - 0.6); b = 0.0 + t * (0.7 - 0.0); }
+        else if (energy <= maxE) { const t = (energy - midE2) / (maxE - midE2); r = 1.0 + t * (0.7 - 1.0); g = 1.0 + t * (0.85 - 1.0); b = 0.7 + t * (1.0 - 0.7); }
+        else { [r, g, b] = [0.7, 0.85, 1.0]; }
+        return new BABYLON.Color3(Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b)));
+    }
+
+    async function createScene() {
+        logToScreen("createScene: Entered function.", "info");
+        try {
+            if (typeof BABYLON === 'undefined') { logToScreen("createScene: BABYLON is undefined!", "error"); return null; }
+            if (!engine) { logToScreen("createScene: Babylon engine is not initialized!", "error"); return null; }
+
+            logToScreen("createScene: Initializing scene...", "info");
+            scene = new BABYLON.Scene(engine);
+            if (!scene) { logToScreen("createScene: Scene creation failed!", "error"); return null; }
+            logToScreen("createScene: Scene object created.", "info");
+
+            logToScreen("createScene: Initializing Ammo.js physics...", "info");
+            try {
+                if (typeof Ammo === 'undefined') {
+                    logToScreen("createScene: Ammo function/object not found. ammo.js script might have failed to load.", "error");
+                    throw new Error("Ammo.js not available.");
+                }
+                logToScreen("createScene: Ammo object found. Calling await Ammo() to initialize WASM...", "info");
+                const ammoInstance = await Ammo();
+                if (!ammoInstance) {
+                    logToScreen("createScene: await Ammo() did not return a valid instance.", "error");
+                    throw new Error("Ammo() initialization failed.");
+                }
+                logToScreen("createScene: Ammo.js WASM initialized. Instantiating AmmoJSPlugin.", "info");
+
+                const ammoPlugin = new BABYLON.AmmoJSPlugin(true, ammoInstance);
+                if (!ammoPlugin) {
+                    logToScreen("createScene: new BABYLON.AmmoJSPlugin() resulted in null/undefined!", "error");
+                    throw new Error("BABYLON.AmmoJSPlugin constructor failed.");
+                }
+                logToScreen("createScene: BABYLON.AmmoJSPlugin instantiated.", "info");
+
+                scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), ammoPlugin);
+                logToScreen("createScene: Physics enabled with AmmoJSPlugin call completed.", "info");
+
+                logToScreen("createScene: ---- Verifying Physics Engine Status ----", "info");
+                const physicsEnabled = scene.isPhysicsEnabled();
+                logToScreen("createScene: scene.isPhysicsEnabled() = " + physicsEnabled, physicsEnabled ? "info" : "error");
+
+                const currentPhysicsEngine = scene.getPhysicsEngine();
+                if (currentPhysicsEngine) {
+                    logToScreen("createScene: scene.getPhysicsEngine() returned an object.", "info");
+                    logToScreen("createScene: Physics engine name: " + currentPhysicsEngine.constructor.name, "info");
+                    logToScreen("createScene: Does it have 'removeImpostor'? typeof currentPhysicsEngine.removeImpostor = " + typeof currentPhysicsEngine.removeImpostor,
+                                (typeof currentPhysicsEngine.removeImpostor === 'function' ? "info" : "error"));
+                    logToScreen("createScene: Does it have 'addImpostor'? typeof currentPhysicsEngine.addImpostor = " + typeof currentPhysicsEngine.addImpostor,
+                                (typeof currentPhysicsEngine.addImpostor === 'function' ? "info" : "error"));
+                    if (ammoPlugin) {
+                        logToScreen("createScene: Original ammoPlugin variable exists.", "info");
+                        logToScreen("createScene: typeof ammoPlugin.removeImpostor = " + typeof ammoPlugin.removeImpostor,
+                                    (typeof ammoPlugin.removeImpostor === 'function' ? "info" : "error"));
+                    } else {
+                        logToScreen("createScene: Original ammoPlugin variable is null or undefined!", "error");
+                    }
+                } else {
+                    logToScreen("createScene: scene.getPhysicsEngine() returned null or undefined!", "error");
+                }
+                logToScreen("createScene: ---- End Physics Engine Status Verification ----", "info");
+
+            } catch (physicsError) {
+                logToScreen("createScene: ERROR during Ammo.js physics initialization: " + physicsError.message, "error");
+                if (physicsError.stack) {
+                    logToScreen(physicsError.stack, "error");
+                }
+            }
+
+            logToScreen("createScene: Initializing camera...", "info");
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 1200, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.minZ = 1; camera.maxZ = 20000; camera.wheelDeltaPercentage = 0.01;
+            if (!camera) { logToScreen("createScene: Camera creation failed!", "error"); return null; }
+            logToScreen("createScene: Camera initialized.", "info");
+
+            logToScreen("createScene: Initializing GlowLayer...", "info");
+            glowLayer = new BABYLON.GlowLayer("glow", scene, { mainTextureSamples: 4 });
+            glowLayer.intensity = 1.5;
+            if (!glowLayer) { logToScreen("createScene: GlowLayer creation failed!", "error"); /* Not fatal */ }
+            logToScreen("createScene: GlowLayer initialized.", "info");
+
+            logToScreen("createScene: Creating starfield...", "info");
+            createStarfield();
+            logToScreen("createScene: Starfield created.", "info");
+            logToScreen("createScene: Defining scenarios...", "info");
+            defineScenarios();
+            logToScreen("createScene: Scenarios defined.", "info");
+            logToScreen("createScene: Setting up UI...", "info");
+            setupUI();
+            logToScreen("createScene: UI setup complete (including collapsible panels).", "info");
+
+            logToScreen("createScene: Loading default scenario ('Planetary Bombardment')...", "info");
+            loadScenario('Planetary Bombardment');
+            logToScreen("createScene: Default scenario loaded.", "info");
+
+            scene.onPointerDown = (evt, pickResult) => {
+                if (pickResult.hit) {
+                    const pickedMesh = pickResult.pickedMesh;
+                    const bodyObj = celestialBodies.find(b => b.mesh === pickedMesh);
+                    if (bodyObj) {
+                        selectedObject = bodyObj.mesh;
+                        const selInfoPanelContent = document.querySelector('#selection-info .panel-content');
+                        if (selInfoPanelContent) {
+                            const vel = bodyObj.impostor ? bodyObj.impostor.getLinearVelocity() : new BABYLON.Vector3(0,0,0);
+                            const ke = bodyObj.impostor && bodyObj.impostor.mass > 0 ? 0.5 * bodyObj.impostor.mass * vel.lengthSquared() : 0;
+                            selInfoPanelContent.innerHTML = `<h3>${bodyObj.initialParams.name}</h3>
+                                                       <p>Mass: <span>${bodyObj.impostor ? bodyObj.impostor.mass.toFixed(1) : 'N/A'}</span></p>
+                                                       <p>Velocity: <span>${vel.length().toFixed(1)}</span></p>
+                                                       <p>KE: <span>${ke.toExponential(2)}</span></p>`;
+                        }
+                        document.getElementById('selection-info').style.display = 'flex';
+                    }
+                } else {
+                    selectedObject = null;
+                    document.getElementById('selection-info').style.display = 'none';
+                }
+            };
+
+            logToScreen("createScene: Function completed successfully.", "info");
+            return scene;
+
+        } catch (e) {
+            logToScreen("createScene: UNHANDLED EXCEPTION in createScene: " + e.message, "error");
+            if (e.stack) { logToScreen(e.stack, "error"); }
+            return null;
+        }
+    }
+
+    function createCelestialBody(params) {
+        const { size, mass, position, velocity, name, isStatic = false } = params;
+
+        const mesh = BABYLON.MeshBuilder.CreateSphere(name, {diameter: size * 2, segments: 32}, scene);
+        mesh.position = position;
+
+        if (name === 'sun') {
+            const sunMaterial = new BABYLON.StandardMaterial("sunMat", scene);
+            sunMaterial.emissiveColor = new BABYLON.Color3(1, 0.8, 0.4);
+            mesh.material = sunMaterial;
+            if (glowLayer) glowLayer.addIncludedOnlyMesh(mesh);
+        } else if (name === 'fragment') {
+            const placeholderMat = new BABYLON.StandardMaterial(name + "PlaceholderMat", scene);
+            placeholderMat.disableLighting = true;
+            mesh.material = placeholderMat;
+        } else {
+            const planetMaterial = new BABYLON.StandardMaterial(name + "Mat", scene);
+            if (params.color) {
+                planetMaterial.diffuseColor = new BABYLON.Color3.FromHexString(params.color);
+            } else {
+                planetMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.7);
+            }
+            planetMaterial.emissiveColor = new BABYLON.Color3(0,0,0);
+            mesh.material = planetMaterial;
+        }
+
+        if (scene && scene.isPhysicsEnabled()) {
+            const physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: isStatic ? 0 : mass, restitution: 0.9, friction: 0.1 }, scene);
+            if (velocity) physicsImpostor.setLinearVelocity(velocity);
+
+            const bodyObject = { mesh, impostor: physicsImpostor, initialParams: params };
+            celestialBodies.push(bodyObject);
+
+            if (bodyObject.impostor) {
+                const collidableImpostors = celestialBodies
+                    .map(cb => cb.impostor)
+                    .filter(i => i && i !== bodyObject.impostor && i.physicsBody);
+
+                if (collidableImpostors.length > 0) {
+                    bodyObject.impostor.registerOnPhysicsCollide(
+                        collidableImpostors,
+                        (mainImpostorThatTriggered, collidedAgainstImpostor, contact) => {
+                            try {
+                                logToScreen(`Collision EVENT FIRED between: ${mainImpostorThatTriggered.object.name} and ${collidedAgainstImpostor.object.name}`, "info");
+
+                                const mainBody = celestialBodies.find(b => b.impostor === mainImpostorThatTriggered);
+                                const otherBody = celestialBodies.find(b => b.impostor === collidedAgainstImpostor);
+
+                                if (!mainBody || !otherBody) {
+                                    logToScreen("Critical Callback Error: Could not find body objects for impostors.", "error");
+                                    return;
+                                }
+
+                                if (mainBody.mesh.uniqueId < otherBody.mesh.uniqueId) {
+                                    let impactEnergyProxy = 0;
+                                    let impulseVectorForHandleCollision = new BABYLON.Vector3(1, 0, 0);
+
+                                    if (contact) {
+                                        const contactLog = {
+                                            point: contact.point ? `(${contact.point.x.toFixed(1)},${contact.point.y.toFixed(1)},${contact.point.z.toFixed(1)})` : "N/A",
+                                            normal: contact.normal ? `(${contact.normal.x.toFixed(1)},${contact.normal.y.toFixed(1)},${contact.normal.z.toFixed(1)})` : "N/A",
+                                            depth: contact.depth !== undefined ? contact.depth.toFixed(3) : "N/A",
+                                            impulse: contact.impulse !== undefined ? contact.impulse.toFixed(2) : "N/A"
+                                        };
+                                        logToScreen("Ammo Contact (Brief): " + JSON.stringify(contactLog), "info");
+                                    } else {
+                                        logToScreen("Ammo Contact: contact object is null or undefined.", "info");
+                                    }
+
+                                    const rawImpulse = (contact && typeof contact.impulse === 'number' && contact.impulse > 0) ? contact.impulse : 0.1;
+
+                                    const impulseToEnergyScaler = 50000;
+                                    impactEnergyProxy = rawImpulse * impulseToEnergyScaler;
+
+                                    logToScreen(`Collision Processing (Ammo): ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}. Raw Impulse: ${rawImpulse.toFixed(2)}, Scaler: ${impulseToEnergyScaler}, Calculated ProxyEnergy: ${impactEnergyProxy.toFixed(2)}`, "info");
+
+                                    if (contact && contact.normal && contact.normal.lengthSquared() > 0.1) {
+                                        impulseVectorForHandleCollision = contact.normal.clone();
+                                    }
+                                    impulseVectorForHandleCollision.normalize().scaleInPlace(impactEnergyProxy);
+
+                                    if (impactEnergyProxy === 0) {
+                                        impulseVectorForHandleCollision.setAll(0);
+                                    }
+
+                                    const isMainSun = mainBody.initialParams.name === 'sun';
+                                    const isOtherSun = otherBody.initialParams.name === 'sun';
+                                    if (isMainSun || isOtherSun) {
+                                         const sunBody = isMainSun ? mainBody : otherBody;
+                                         const nonSunBody = isMainSun ? otherBody : mainBody;
+                                         logToScreen(`SUN COLLISION (Ammo): Sun (${sunBody.initialParams.name}) vs ${nonSunBody.initialParams.name}. ProxyEnergy: ${impactEnergyProxy.toFixed(2)}`, "info");
+                                    }
+
+                                    logToScreen(`Calling handleCollision for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name} with energy ${impactEnergyProxy.toFixed(2)}`, "info");
+                                    handleCollision(mainBody, otherBody.mesh, impulseVectorForHandleCollision);
+                                    logToScreen(`handleCollision call completed for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}`, "info");
+                                }
+                            } catch (e) {
+                                logToScreen(`ERROR INSIDE registerOnPhysicsCollide callback: ${e.message}`, "error");
+                                if (e.stack) {
+                                    logToScreen(e.stack, "error");
+                                }
+                            }
+                        }
+                    );
+                }
+            }
+            return bodyObject;
+        } else {
+            logToScreen("ERROR: Physics not enabled or scene not ready when trying to create impostor for: " + name, "error");
+            const bodyObject = { mesh, impostor: null, initialParams: params };
+            celestialBodies.push(bodyObject);
+            return bodyObject;
+        }
+    }
+
+    function handleCollision(bodyObject, otherMesh, impactImpulse) {
+        if (simulationState !== 'RUNNING' || !bodyObject || !bodyObject.impostor || !otherMesh) return;
+        const otherBodyObject = celestialBodies.find(b => b.mesh === otherMesh);
+        if (!otherBodyObject || !otherBodyObject.impostor) return;
+
+        if (bodyObject.mesh.id === otherBodyObject.mesh.id ||
+            bodyObject.initialParams.name === 'sun' || otherBodyObject.initialParams.name === 'sun' ||
+            bodyObject.initialParams.name === 'fragment' || otherBodyObject.initialParams.name === 'fragment') {
+            return;
+        }
+
+        const impactEnergy = impactImpulse.length();
+
+        if (impactEnergy > 20000) {
+            const smallerBody = bodyObject.impostor.mass < otherBodyObject.impostor.mass ? bodyObject : otherBodyObject;
+            const largerBody = smallerBody === bodyObject ? otherBodyObject : bodyObject;
+
+            const massRatio = smallerBody.impostor.mass / largerBody.impostor.mass;
+            const impactPoint = smallerBody.mesh.position.clone().add(largerBody.mesh.position).scale(0.5);
+
+            const combinedMass = bodyObject.impostor.mass + otherBodyObject.impostor.mass;
+            const v1 = bodyObject.impostor.getLinearVelocity();
+            const v2 = otherBodyObject.impostor.getLinearVelocity();
+            const combinedVelocity = v1.scale(bodyObject.impostor.mass).add(v2.scale(otherBodyObject.impostor.mass)).scale(1 / combinedMass);
+
+            if (impactEnergy > EXTREME_IMPACT_ENERGY) {
+                createExplosion(impactPoint, smallerBody.initialParams.size + largerBody.initialParams.size);
+                createFragments(impactPoint, combinedMass, combinedVelocity, impactEnergy);
+
+                setTimeout(() => {
+                    destroyBody(bodyObject);
+                    destroyBody(otherBodyObject);
+                }, 0);
+
+            } else {
+                createExplosion(impactPoint, smallerBody.initialParams.size + (massRatio > 0.7 ? largerBody.initialParams.size : 0));
+
+                if (massRatio > 0.7) {
+                    createFragments(impactPoint, combinedMass, combinedVelocity, impactEnergy);
+                    setTimeout(() => {
+                        destroyBody(bodyObject);
+                        destroyBody(otherBodyObject);
+                    }, 0);
+                } else {
+                    largerBody.impostor.mass += smallerBody.impostor.mass;
+                    largerBody.impostor.setLinearVelocity(combinedVelocity);
+
+                    const glowColor = getEnergyColor(impactEnergy, MIN_IMPACT_ENERGY_COLOR, MID1_IMPACT_ENERGY_COLOR, MID2_IMPACT_ENERGY_COLOR, MAX_IMPACT_ENERGY_COLOR);
+                    if (largerBody.mesh && largerBody.mesh.material) {
+                        largerBody.mesh.material.emissiveColor = glowColor;
+                        glowLayer.addIncludedOnlyMesh(largerBody.mesh);
+                        setTimeout(() => {
+                            if (largerBody.mesh && largerBody.mesh.material) {
+                                largerBody.mesh.material.emissiveColor.set(0,0,0);
+                                if (glowLayer.hasMesh(largerBody.mesh)) {
+                                   glowLayer.removeIncludedOnlyMesh(largerBody.mesh);
+                                }
+                            }
+                        }, 1500);
+                    }
+
+                    createFragments(impactPoint, smallerBody.impostor.mass, combinedVelocity, impactEnergy);
+                    setTimeout(() => {
+                       destroyBody(smallerBody);
+                    }, 0);
+                }
+            }
+        }
+    }
+
+        function destroyBody(bodyObject) {
+            if (!bodyObject) return;
+            const index = celestialBodies.findIndex(b => b.mesh.id === bodyObject.mesh.id);
+            if (index > -1) celestialBodies.splice(index, 1);
+            if (bodyObject.impostor) bodyObject.impostor.dispose();
+            if (bodyObject.mesh) bodyObject.mesh.dispose();
+            if(selectedObject && selectedObject.id === bodyObject.mesh.id) {
+                selectedObject = null;
+                document.getElementById('selection-info').style.display = 'none';
+            }
+        }
+
+        function mapLinear(value, inMin, inMax, outMin, outMax) {
+            return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+        }
+
+    function createFragments(position, originalMass, originalVelocity, impactEnergy) {
+        const mappedImpactEnergy = Math.min(impactEnergy, 300000);
+        const cappedImpactEnergyForSize = Math.min(impactEnergy, MAX_IMPACT_ENERGY_COLOR);
+
+        const numFragments = Math.floor(mapLinear(mappedImpactEnergy, MIN_IMPACT_ENERGY_COLOR, 300000, 10, 80));
+        logToScreen(`Creating ${numFragments} fragments for impact energy proxy: ${impactEnergy.toFixed(0)}`, "info");
+        const baseFragmentSpeed = mapLinear(mappedImpactEnergy, MIN_IMPACT_ENERGY_COLOR, 300000, 50, 400);
+        const baseFragSizeFactor = Math.max(0.5, mapLinear(cappedImpactEnergyForSize, MIN_IMPACT_ENERGY_COLOR, MAX_IMPACT_ENERGY_COLOR, 2.5, 0.5));
+        const fragmentColor = getEnergyColor(impactEnergy, MIN_IMPACT_ENERGY_COLOR, MID1_IMPACT_ENERGY_COLOR, MID2_IMPACT_ENERGY_COLOR, MAX_IMPACT_ENERGY_COLOR);
+
+        for (let i = 0; i < numFragments; i++) {
+            const size = (Math.random() * baseFragSizeFactor) + 0.5;
+            let mass = (originalMass / numFragments) * (Math.random() * 0.5 + 0.25);
+            mass = Math.max(0.01, mass);
+
+            const fragPos = position.clone().add(new BABYLON.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).scale(20));
+            const fragVel = originalVelocity.clone().add(
+                new BABYLON.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+                .normalize()
+                .scale(baseFragmentSpeed * (Math.random() * 0.8 + 0.6))
+            );
+
+            const fragment = createCelestialBody({
+                size,
+                mass,
+                position: fragPos,
+                velocity: fragVel,
+                name: 'fragment'
+            });
+
+            const material = new BABYLON.StandardMaterial("fragMat_" + scene.getUniqueId(), scene);
+            material.emissiveColor = fragmentColor;
+            material.alpha = 1.0;
+
+            fragment.isFragment = true;
+            fragment.life = 1.0;
+
+            if (fragment.mesh) {
+                fragment.mesh.material = material;
+            }
+
+            if (impactEnergy > MID2_IMPACT_ENERGY_COLOR) {
+                 if (fragment.mesh && glowLayer) glowLayer.addIncludedOnlyMesh(fragment.mesh);
+            }
+
+            setTimeout(() => {
+                if (fragment.mesh && fragment.mesh.material && glowLayer && glowLayer.hasMesh(fragment.mesh)) {
+                    glowLayer.removeIncludedOnlyMesh(fragment.mesh);
+                }
+                destroyBody(fragment);
+            }, 15000 + Math.random() * 10000);
+        }
+    }
+
+        function createExplosion(position, size) {
+            const explosionSphere = BABYLON.MeshBuilder.CreateSphere("explosion", {diameter: size * 1.5, segments: 16}, scene);
+            explosionSphere.position = position;
+            const material = new BABYLON.StandardMaterial("explosionMat", scene);
+            material.emissiveColor = new BABYLON.Color3(1, 0.8, 0.4);
+            material.alpha = 0.8;
+            material.disableLighting = true;
+            explosionSphere.material = material;
+
+            let scale = 1.0;
+            let opacity = 0.8;
+            const anim = () => {
+                if (opacity > 0) {
+                    scale *= 1.1;
+                    opacity -= 0.025;
+                    explosionSphere.scaling.setAll(scale);
+                    material.alpha = opacity;
+                    requestAnimationFrame(anim);
+                } else {
+                    explosionSphere.dispose();
+                }
+            };
+            anim();
+        }
+
+        function createStarfield() {
+            var starfield = new BABYLON.ParticleSystem("particles", 40000, scene);
+            starfield.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene);
+            starfield.emitter = new BABYLON.Vector3(0, 0, 0);
+            starfield.minEmitBox = new BABYLON.Vector3(-4000, -4000, -4000);
+            starfield.maxEmitBox = new BABYLON.Vector3(4000, 4000, 4000);
+            starfield.color1 = new BABYLON.Color4(0.9, 0.9, 1.0, 1.0);
+            starfield.color2 = new BABYLON.Color4(1.0, 1.0, 1.0, 1.0);
+            starfield.minSize = 1;
+            starfield.maxSize = 2;
+            starfield.minLifeTime = 100000;
+            starfield.maxLifeTime = 100000;
+            starfield.emitRate = 40000;
+            starfield.start();
+        }
+
+        function generateGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,220,180,0.8)');
+            gradient.addColorStop(0.5, 'rgba(255,180,0,0.4)');
+            gradient.addColorStop(1, 'rgba(255,160,0,0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            return canvas;
+        }
+
+        function setupCollapsiblePanels() {
+            const panelSelectors = ['#info', '#selection-info', '#controls-container'];
+            panelSelectors.forEach(selector => {
+                const panel = document.querySelector(selector);
+                if (!panel) {
+                    logToScreen(`setupCollapsiblePanels: Panel with selector ${selector} not found.`, "error");
+                    return;
+                }
+                const header = panel.querySelector('.panel-header');
+                const content = panel.querySelector('.panel-content');
+                const toggleIcon = panel.querySelector('.panel-toggle-icon');
+
+                if (header && content) {
+                    if (panel.id === 'controls-container') {
+                        content.classList.add('collapsed');
+                        if (toggleIcon) toggleIcon.textContent = '+';
+                        if (header) header.classList.add('collapsed-header');
+                    } else if (panel.id === 'selection-info' && content.innerHTML.trim() === '') {
+                        content.classList.add('collapsed');
+                        if (toggleIcon) toggleIcon.textContent = '+';
+                        if (header) header.classList.add('collapsed-header');
+                    }
+                    else {
+                         if (toggleIcon) toggleIcon.textContent = '-';
+                         if (header) header.classList.remove('collapsed-header');
+                    }
+
+                    header.addEventListener('click', () => {
+                        const isCollapsed = content.classList.toggle('collapsed');
+                        if (toggleIcon) {
+                            toggleIcon.textContent = isCollapsed ? '+' : '-';
+                        }
+                        if(header) header.classList.toggle('collapsed-header', isCollapsed);
+                        logToScreen(`Panel ${panel.id || 'unknown'} toggled. Collapsed: ${isCollapsed}`, 'info');
+                    });
+                } else {
+                    logToScreen(`setupCollapsiblePanels: Header or content not found for panel ${selector}. Structure: ${panel.innerHTML}`, "error");
+                }
+            });
+        }
+
+
+        function setupUI() {
+            const controlsContainerPanelContent = document.querySelector('#controls-container .panel-content');
+            if (!controlsContainerPanelContent) {
+                logToScreen("setupUI: #controls-container .panel-content not found! Cannot build controls.", "error");
+                return;
+            }
+            controlsContainerPanelContent.innerHTML = '';
+
+            const simGroup = document.createElement('div');
+            simGroup.className = 'control-group';
+            simGroup.innerHTML = '<h3>Simulation Control</h3>';
+            controlsContainerPanelContent.appendChild(simGroup);
+
+            const scenarioSelect = document.createElement('select');
+            scenarioSelect.id = 'scenario-select';
+            Object.keys(initialCelestialStates).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                scenarioSelect.appendChild(option);
+            });
+            simGroup.appendChild(scenarioSelect);
+            scenarioSelect.addEventListener('change', (e) => loadScenario(e.target.value));
+
+            const simButtonGroup = document.createElement('div');
+            simButtonGroup.className = 'button-group';
+            simButtonGroup.innerHTML = `<button id="play-pause-button">Play</button><button id="reset-button">Reset</button>`;
+            simGroup.appendChild(simButtonGroup);
+
+            const timeRow = document.createElement('div');
+            timeRow.className = 'control-row';
+            timeRow.style.marginTop = "10px";
+            timeRow.innerHTML = `<label for="time-scale">Time:</label>
+                                 <input type="range" id="time-scale" min="0.1" max="5" value="1" step="0.1">
+                                 <span class="value-display">1.0</span>`;
+            simGroup.appendChild(timeRow);
+
+            const addBodyParent = document.createElement('div');
+            addBodyParent.className = 'control-group';
+            addBodyParent.innerHTML = '<h3>Add Celestial Body</h3>';
+            controlsContainerPanelContent.appendChild(addBodyParent);
+
+            const fields = [
+                { id: 'mass', label: 'Mass', min: 1, max: 500, value: 20, step: 1 },
+                { id: 'size', label: 'Size', min: 2, max: 40, value: 8, step: 1 },
+                { id: 'posX', label: 'Pos X', min: -800, max: 800, value: 400, step: 10 },
+                { id: 'posY', label: 'Pos Y', min: -400, max: 400, value: 0, step: 10 },
+                { id: 'posZ', label: 'Pos Z', min: -800, max: 800, value: 0, step: 10 },
+                { id: 'velX', label: 'Vel X', min: -50, max: 50, value: 0, step: 1 },
+                { id: 'velY', label: 'Vel Y', min: -50, max: 50, value: 0, step: 1 },
+                { id: 'velZ', label: 'Vel Z', min: -50, max: 50, value: -15, step: 1 }
+            ];
+
+            fields.forEach(f => {
+                const row = document.createElement('div');
+                row.className = 'control-row';
+                row.innerHTML = `<label for="${f.id}">${f.label}:</label>
+                                 <input type="range" id="${f.id}" min="${f.min}" max="${f.max}" value="${f.value}" step="${f.step}">
+                                 <input type="number" id="${f.id}-val" value="${f.value}">`;
+                addBodyParent.appendChild(row);
+                document.getElementById(f.id).addEventListener('input', e => { document.getElementById(`${f.id}-val`).value = e.target.value });
+                document.getElementById(`${f.id}-val`).addEventListener('input', e => { document.getElementById(f.id).value = e.target.value });
+            });
+
+            const addBtnGroup = document.createElement('div');
+            addBtnGroup.className = 'button-group';
+            addBtnGroup.innerHTML = `<button id="add-body-btn">Add Body</button><button id="remove-body-btn">Remove Last</button>`;
+            addBodyParent.appendChild(addBtnGroup);
+
+            const clearFragmentsButton = document.createElement('button');
+            clearFragmentsButton.id = 'clear-fragments-btn';
+            clearFragmentsButton.textContent = 'Clear Fragments';
+            clearFragmentsButton.style.marginTop = '5px';
+            clearFragmentsButton.style.gridColumn = '1 / -1';
+            simButtonGroup.appendChild(clearFragmentsButton);
+
+            clearFragmentsButton.addEventListener('click', clearFragments);
+
+            document.getElementById('play-pause-button').addEventListener('click', (e) => {
+                logToScreen(`Play/Pause button clicked. Current state: ${simulationState}`, "info");
+                simulationState = (simulationState === 'PAUSED') ? 'RUNNING' : 'PAUSED';
+                e.target.textContent = (simulationState === 'RUNNING') ? 'Pause' : 'Play';
+                e.target.classList.toggle('paused', simulationState !== 'RUNNING');
+                logToScreen(`New simulationState: ${simulationState}. Button text: ${e.target.textContent}`, "info");
+
+                if (scene && scene.getPhysicsEngine()) {
+                    if (simulationState === 'PAUSED') {
+                        logToScreen("Simulation consequences PAUSED (handleCollision blocked, animate updates conditional). Physics world may still step via render loop.", "info");
+                    } else {
+                        logToScreen("Simulation RUNNING (handleCollision active, animate updates conditional).", "info");
+                    }
+                }
+            });
+            document.getElementById('reset-button').addEventListener('click', () => {
+                loadScenario(document.getElementById('scenario-select').value);
+            });
+            document.getElementById('time-scale').addEventListener('input', e => {
+                timeScale = parseFloat(e.target.value);
+                e.target.nextElementSibling.textContent = timeScale.toFixed(1);
+            });
+            document.getElementById('add-body-btn').addEventListener('click', addCustomBody);
+            document.getElementById('remove-body-btn').addEventListener('click', removeLastBody);
+
+            setupCollapsiblePanels();
+        }
+
+        function defineScenarios() {
+            const sunParams = { name: 'sun', size: 70, mass: 100000, position: new BABYLON.Vector3(0, 0, 0), isStatic: true };
+
+            initialCelestialStates = {
+                'Head-on Collision': [
+                    sunParams,
+                    { name: 'Planet-A', size: 20, mass: 150, position: new BABYLON.Vector3(-400, 0, 50), velocity: new BABYLON.Vector3(40, 0, 0), color: '#87ceeb' },
+                    { name: 'Planet-B', size: 20, mass: 150, position: new BABYLON.Vector3(400, 0, -50), velocity: new BABYLON.Vector3(-40, 0, 0), color: '#b9a186' }
+                ],
+                'Grazing Impact': [
+                    sunParams,
+                    { name: 'Planet-A', size: 30, mass: 250, position: new BABYLON.Vector3(-500, 0, 25), velocity: new BABYLON.Vector3(45, 0, 0), color: '#2f6a69' },
+                    { name: 'Planet-B', size: 15, mass: 50, position: new BABYLON.Vector3(500, 0, -25), velocity: new BABYLON.Vector3(-45, 0, 0), color: '#c1440e' }
+                ],
+                'Binary System Fly-by': [
+                    { name: 'Star-1', size: 15, mass: 20000, position: new BABYLON.Vector3(-200, 0, 0), velocity: new BABYLON.Vector3(0, 0, 25), color: '#87ceeb' },
+                    { name: 'Star-2', size: 15, mass: 20000, position: new BABYLON.Vector3(200, 0, 0), velocity: new BABYLON.Vector3(0, 0, -25), color: '#ffb3ba' },
+                    { name: 'Intruder', size: 5, mass: 5, position: new BABYLON.Vector3(0, 0, 800), velocity: new BABYLON.Vector3(0, 0, -50), color: '#ffffff' },
+                ],
+                 'Planetary Bombardment': [
+                    sunParams,
+                    { name: 'Target', size: 40, mass: 500, position: new BABYLON.Vector3(0, 0, 200), velocity: new BABYLON.Vector3(0,0,0), color: '#4682b4' },
+                    { name: 'Projectile1', size: 8, mass: 10, position: new BABYLON.Vector3(0, 0, -600), velocity: new BABYLON.Vector3(0, 0, 100), color: '#e6e6fa' },
+                    { name: 'Projectile2', size: 10, mass: 15, position: new BABYLON.Vector3(800, -50, -50), velocity: new BABYLON.Vector3(-120, 0, 0), color: '#a9a9a9' }
+                ],
+                'Empty Canvas': [sunParams],
+            };
+        }
+
+        function loadScenario(scenarioName) {
+            simulationState = 'PAUSED';
+            const btn = document.getElementById('play-pause-button');
+            if(btn) {
+                btn.textContent = 'Play';
+                btn.classList.remove('paused');
+            }
+
+            while(celestialBodies.length > 0) {
+                destroyBody(celestialBodies[0]);
+            }
+
+            const scenarioData = initialCelestialStates[scenarioName];
+            scenarioData.forEach(params => createCelestialBody({...params}));
+        }
+
+        function addCustomBody() {
+            const params = {
+                name: `custom-${Math.random().toString(16).slice(2)}`,
+                size: parseFloat(document.getElementById('size').value),
+                mass: parseFloat(document.getElementById('mass').value),
+                position: new BABYLON.Vector3(
+                    parseFloat(document.getElementById('posX').value), parseFloat(document.getElementById('posY').value), parseFloat(document.getElementById('posZ').value)
+                ),
+                velocity: new BABYLON.Vector3(
+                    parseFloat(document.getElementById('velX').value), parseFloat(document.getElementById('velY').value), parseFloat(document.getElementById('velZ').value)
+                ),
+                color: '#9fa8da',
+            };
+            createCelestialBody(params);
+        }
+
+        function removeLastBody() {
+            const customBodies = celestialBodies.filter(b => b.initialParams.name.startsWith('custom-'));
+            if (customBodies.length > 0) {
+                destroyBody(customBodies[customBodies.length-1]);
+            }
+        }
+
+      function clearFragments() {
+          logToScreen("Clearing all fragments...", "info");
+          let fragmentsCleared = 0;
+          for (let i = celestialBodies.length - 1; i >= 0; i--) {
+              const body = celestialBodies[i];
+              if (body && body.initialParams && body.initialParams.name === 'fragment') {
+                  if (body.mesh && glowLayer && glowLayer.hasMesh(body.mesh)) {
+                      glowLayer.removeIncludedOnlyMesh(body.mesh);
+                  }
+                  destroyBody(body);
+                  fragmentsCleared++;
+              }
+          }
+          logToScreen(`${fragmentsCleared} fragments cleared.`, "info");
+          if (selectedObject) {
+              const isSelectedObjectFragment = !celestialBodies.some(b => b.mesh && b.mesh.id === selectedObject.id);
+              if (isSelectedObjectFragment) {
+                  selectedObject = null;
+                  document.getElementById('selection-info').style.display = 'none';
+              }
+          }
+      }
+
+    let frameCount = 0;
+
+    function animate() {
+        frameCount++;
+        if (frameCount % 180 === 1) {
+            logToScreen(`Animate loop: simulationState = ${simulationState}, timeScale = ${timeScale}`, "info");
+        }
+
+        let deltaTime = engine.getDeltaTime() / 1000 * timeScale;
+        if (deltaTime > 0.1) deltaTime = 0.1;
+
+        if (simulationState === 'RUNNING') {
+             celestialBodies.forEach(obj => {
+                 if (!obj.mesh || !obj.mesh.material) return;
+
+                 if (obj.initialParams.name === 'fragment' && typeof obj.life === 'number') {
+                     obj.life -= 0.005 * timeScale;
+                     obj.mesh.material.alpha = Math.max(0, obj.life);
+                 } else if (obj.initialParams.name !== 'sun' && obj.initialParams.name !== 'fragment' &&
+                            obj.impostor && obj.impostor.mass > 0 &&
+                            obj.mesh.material.emissiveColor) {
+                     const ke = 0.5 * obj.impostor.mass * obj.impostor.getLinearVelocity().lengthSquared();
+                     const energyRatio = Math.min(ke / KINETIC_ENERGY_SCALE, 1.0);
+                        obj.mesh.material.emissiveColor.set(energyRatio * 1.5, energyRatio * 0.5, 0);
+                 }
+             });
+        }
+
+            if (selectedObject) {
+                const bodyObj = celestialBodies.find(b => b.mesh.id === selectedObject.id);
+                if (bodyObj) {
+                     const selInfoPanelContent = document.querySelector('#selection-info .panel-content');
+                     if(selInfoPanelContent){
+                        const vel = bodyObj.impostor ? bodyObj.impostor.getLinearVelocity() : new BABYLON.Vector3(0,0,0);
+                        const ke = bodyObj.impostor && bodyObj.impostor.mass > 0 ? 0.5 * bodyObj.impostor.mass * vel.lengthSquared() : 0;
+                        selInfoPanelContent.innerHTML = `<h3>${bodyObj.initialParams.name}</h3>
+                                                       <p>Mass: <span>${bodyObj.impostor ? bodyObj.impostor.mass.toFixed(1) : 'N/A'}</span></p>
+                                                       <p>Velocity: <span>${vel.length().toFixed(1)}</span></p>
+                                                       <p>KE: <span>${ke.toExponential(2)}</span></p>`;
+                     }
+                } else {
+                    selectedObject = null;
+                    document.getElementById('selection-info').style.display = 'none';
+                }
+            }
+        }
+
+        createScene().then(sceneToRender => {
+            engine.runRenderLoop(() => {
+                if (sceneToRender) {
+                    sceneToRender.render();
+                }
+            });
+        });
+
+        window.addEventListener('resize', () => engine.resize());
+
+    </script>
+</body>
+</html>
