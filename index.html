@@ -305,8 +305,9 @@
                 }
                 logToScreen("createScene: BABYLON.AmmoJSPlugin instantiated.", "info");
 
-                scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), ammoPlugin);
-                logToScreen("createScene: Physics enabled with AmmoJSPlugin call completed.", "info");
+                scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), ammoPlugin); // New zero gravity
+                logToScreen("createScene: Physics enabled with AmmoJSPlugin (Gravity: 0,0,0).", "info");
+
 
                 logToScreen("createScene: ---- Verifying Physics Engine Status ----", "info");
                 const physicsEnabled = scene.isPhysicsEnabled();
@@ -442,7 +443,6 @@
                         collidableImpostors,
                         (mainImpostorThatTriggered, collidedAgainstImpostor, contact) => {
                             try {
-                                // ---- NEW FIRST LINE DIAGNOSTIC LOG ----
                                 logToScreen(`INSIDE TRY BLOCK for collision: ${mainImpostorThatTriggered.object.name} vs ${collidedAgainstImpostor.object.name}`, "info");
 
                                 const mainBody = celestialBodies.find(b => b.impostor === mainImpostorThatTriggered);
