@@ -442,7 +442,8 @@
                         collidableImpostors,
                         (mainImpostorThatTriggered, collidedAgainstImpostor, contact) => {
                             try {
-                                logToScreen(`Collision EVENT FIRED between: ${mainImpostorThatTriggered.object.name} and ${collidedAgainstImpostor.object.name}`, "info");
+                                // ---- NEW FIRST LINE DIAGNOSTIC LOG ----
+                                logToScreen(`INSIDE TRY BLOCK for collision: ${mainImpostorThatTriggered.object.name} vs ${collidedAgainstImpostor.object.name}`, "info");
 
                                 const mainBody = celestialBodies.find(b => b.impostor === mainImpostorThatTriggered);
                                 const otherBody = celestialBodies.find(b => b.impostor === collidedAgainstImpostor);
@@ -455,7 +456,6 @@
                                 if (mainBody.mesh.uniqueId < otherBody.mesh.uniqueId) {
                                     let impactEnergyProxy = 0;
                                     let impulseVectorForHandleCollision = new BABYLON.Vector3(1, 0, 0);
-
                                     if (contact) {
                                         const contactLog = {
                                             point: contact.point ? `(${contact.point.x.toFixed(1)},${contact.point.y.toFixed(1)},${contact.point.z.toFixed(1)})` : "N/A",
@@ -495,6 +495,8 @@
                                     logToScreen(`Calling handleCollision for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name} with energy ${impactEnergyProxy.toFixed(2)}`, "info");
                                     handleCollision(mainBody, otherBody.mesh, impulseVectorForHandleCollision);
                                     logToScreen(`handleCollision call completed for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}`, "info");
+                                } else {
+                                    // logToScreen(`Collision event for ${mainImpostorThatTriggered.object.name} vs ${collidedAgainstImpostor.object.name} skipped (ID check).`, "info");
                                 }
                             } catch (e) {
                                 logToScreen(`ERROR INSIDE registerOnPhysicsCollide callback: ${e.message}`, "error");
