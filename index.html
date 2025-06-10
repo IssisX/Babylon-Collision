@@ -305,7 +305,7 @@
                 }
                 logToScreen("createScene: BABYLON.AmmoJSPlugin instantiated.", "info");
 
-                scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), ammoPlugin); // New zero gravity
+                scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), ammoPlugin);
                 logToScreen("createScene: Physics enabled with AmmoJSPlugin (Gravity: 0,0,0).", "info");
 
 
@@ -456,6 +456,7 @@
                                 if (mainBody.mesh.uniqueId < otherBody.mesh.uniqueId) {
                                     let impactEnergyProxy = 0;
                                     let impulseVectorForHandleCollision = new BABYLON.Vector3(1, 0, 0);
+
                                     if (contact) {
                                         const contactLog = {
                                             point: contact.point ? `(${contact.point.x.toFixed(1)},${contact.point.y.toFixed(1)},${contact.point.z.toFixed(1)})` : "N/A",
@@ -468,19 +469,21 @@
                                         logToScreen("Ammo Contact: contact object is null or undefined.", "info");
                                     }
 
-                                    const rawImpulse = (contact && typeof contact.impulse === 'number' && contact.impulse > 0) ? contact.impulse : 0.1;
-
+                                    // ---- TEMPORARY FORCE HIGH ENERGY FOR DIAGNOSIS ----
+                                    const originalCalculatedRawImpulse = (contact && typeof contact.impulse === 'number' && contact.impulse > 0) ? contact.impulse : 0.1;
                                     const impulseToEnergyScaler = 50000;
-                                    impactEnergyProxy = rawImpulse * impulseToEnergyScaler;
+                                    const originalCalculatedEnergy = originalCalculatedRawImpulse * impulseToEnergyScaler;
 
-                                    logToScreen(`Collision Processing (Ammo): ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}. Raw Impulse: ${rawImpulse.toFixed(2)}, Scaler: ${impulseToEnergyScaler}, Calculated ProxyEnergy: ${impactEnergyProxy.toFixed(2)}`, "info");
+                                    impactEnergyProxy = 150000; // Force high energy
+                                    logToScreen(`DIAGNOSTIC: Forcing impactEnergyProxy to ${impactEnergyProxy} (original calc from impulse ${originalCalculatedRawImpulse.toFixed(2)} -> ${originalCalculatedEnergy.toFixed(2)}) for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}`, "error");
+                                    // ---- END TEMPORARY FORCE ----
 
                                     if (contact && contact.normal && contact.normal.lengthSquared() > 0.1) {
                                         impulseVectorForHandleCollision = contact.normal.clone();
                                     }
                                     impulseVectorForHandleCollision.normalize().scaleInPlace(impactEnergyProxy);
 
-                                    if (impactEnergyProxy === 0) {
+                                    if (impactEnergyProxy === 0) { // Should not happen with forced value unless forced to 0
                                         impulseVectorForHandleCollision.setAll(0);
                                     }
 
@@ -492,7 +495,7 @@
                                          logToScreen(`SUN COLLISION (Ammo): Sun (${sunBody.initialParams.name}) vs ${nonSunBody.initialParams.name}. ProxyEnergy: ${impactEnergyProxy.toFixed(2)}`, "info");
                                     }
 
-                                    logToScreen(`Calling handleCollision for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name} with energy ${impactEnergyProxy.toFixed(2)}`, "info");
+                                    logToScreen(`Calling handleCollision for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name} with FORCED energy ${impactEnergyProxy.toFixed(2)}`, "info");
                                     handleCollision(mainBody, otherBody.mesh, impulseVectorForHandleCollision);
                                     logToScreen(`handleCollision call completed for ${mainBody.initialParams.name} vs ${otherBody.initialParams.name}`, "info");
                                 } else {
@@ -518,72 +521,87 @@
     }
 
     function handleCollision(bodyObject, otherMesh, impactImpulse) {
-        if (simulationState !== 'RUNNING' || !bodyObject || !bodyObject.impostor || !otherMesh) return;
-        const otherBodyObject = celestialBodies.find(b => b.mesh === otherMesh);
-        if (!otherBodyObject || !otherBodyObject.impostor) return;
+        logToScreen(`handleCollision: Entered for ${bodyObject.initialParams.name} vs ${otherMesh.name}.`, "info");
 
+        if (simulationState !== 'RUNNING' || !bodyObject || !bodyObject.impostor || !otherMesh) {
+            logToScreen(`handleCollision: Exiting early (sim state: ${simulationState}, bodyObject: !!${bodyObject}, impostor: !!${bodyObject.impostor}, otherMesh: !!${otherMesh})`, "info");
+            return;
+        }
+        const otherBodyObject = celestialBodies.find(b => b.mesh === otherMesh);
+        if (!otherBodyObject || !otherBodyObject.impostor) {
+            logToScreen(`handleCollision: Exiting early (otherBodyObject or its impostor not found for ${otherMesh.name})`, "info");
+            return;
+        }
         if (bodyObject.mesh.id === otherBodyObject.mesh.id ||
             bodyObject.initialParams.name === 'sun' || otherBodyObject.initialParams.name === 'sun' ||
             bodyObject.initialParams.name === 'fragment' || otherBodyObject.initialParams.name === 'fragment') {
+            logToScreen(`handleCollision: Exiting early (self-collision, or sun/fragment involvement for ${bodyObject.initialParams.name} vs ${otherBodyObject.initialParams.name})`, "info");
             return;
         }
 
         const impactEnergy = impactImpulse.length();
+        logToScreen(`handleCollision: Calculated impactEnergy = ${impactEnergy.toFixed(2)} for ${bodyObject.initialParams.name} vs ${otherBodyObject.initialParams.name}. (Threshold for effects: >20000)`, "info");
 
         if (impactEnergy > 20000) {
+            logToScreen(`handleCollision: Impact energy ${impactEnergy.toFixed(2)} > 20000 threshold. Proceeding with effects.`, "info");
+
             const smallerBody = bodyObject.impostor.mass < otherBodyObject.impostor.mass ? bodyObject : otherBodyObject;
             const largerBody = smallerBody === bodyObject ? otherBodyObject : bodyObject;
-
             const massRatio = smallerBody.impostor.mass / largerBody.impostor.mass;
             const impactPoint = smallerBody.mesh.position.clone().add(largerBody.mesh.position).scale(0.5);
-
             const combinedMass = bodyObject.impostor.mass + otherBodyObject.impostor.mass;
             const v1 = bodyObject.impostor.getLinearVelocity();
             const v2 = otherBodyObject.impostor.getLinearVelocity();
             const combinedVelocity = v1.scale(bodyObject.impostor.mass).add(v2.scale(otherBodyObject.impostor.mass)).scale(1 / combinedMass);
 
-            if (impactEnergy > EXTREME_IMPACT_ENERGY) {
-                createExplosion(impactPoint, smallerBody.initialParams.size + largerBody.initialParams.size);
-                createFragments(impactPoint, combinedMass, combinedVelocity, impactEnergy);
+            logToScreen(`handleCollision: Creating explosion...`, "info");
+            createExplosion(impactPoint, smallerBody.initialParams.size + (massRatio > 0.7 || impactEnergy > EXTREME_IMPACT_ENERGY ? largerBody.initialParams.size : 0));
 
+            if (impactEnergy > EXTREME_IMPACT_ENERGY) {
+                logToScreen(`handleCollision: Extreme impact energy (${impactEnergy.toFixed(2)} > ${EXTREME_IMPACT_ENERGY}). Both bodies destroyed. Creating fragments...`, "info");
+                createFragments(impactPoint, combinedMass, combinedVelocity, impactEnergy);
                 setTimeout(() => {
+                    logToScreen(`handleCollision (timeout): Destroying ${bodyObject.initialParams.name} (extreme impact)`, "info");
                     destroyBody(bodyObject);
+                    logToScreen(`handleCollision (timeout): Destroying ${otherBodyObject.initialParams.name} (extreme impact)`, "info");
                     destroyBody(otherBodyObject);
                 }, 0);
-
             } else {
-                createExplosion(impactPoint, smallerBody.initialParams.size + (massRatio > 0.7 ? largerBody.initialParams.size : 0));
-
                 if (massRatio > 0.7) {
+                    logToScreen(`handleCollision: massRatio > 0.7. Both bodies destroyed. Creating fragments...`, "info");
                     createFragments(impactPoint, combinedMass, combinedVelocity, impactEnergy);
                     setTimeout(() => {
+                        logToScreen(`handleCollision (timeout): Destroying ${bodyObject.initialParams.name} (mass ratio)`, "info");
                         destroyBody(bodyObject);
+                        logToScreen(`handleCollision (timeout): Destroying ${otherBodyObject.initialParams.name} (mass ratio)`, "info");
                         destroyBody(otherBodyObject);
                     }, 0);
                 } else {
+                    logToScreen(`handleCollision: Smaller body absorbed. Larger: ${largerBody.initialParams.name}, Smaller: ${smallerBody.initialParams.name}. Creating fragments from smaller...`, "info");
                     largerBody.impostor.mass += smallerBody.impostor.mass;
                     largerBody.impostor.setLinearVelocity(combinedVelocity);
-
                     const glowColor = getEnergyColor(impactEnergy, MIN_IMPACT_ENERGY_COLOR, MID1_IMPACT_ENERGY_COLOR, MID2_IMPACT_ENERGY_COLOR, MAX_IMPACT_ENERGY_COLOR);
                     if (largerBody.mesh && largerBody.mesh.material) {
                         largerBody.mesh.material.emissiveColor = glowColor;
-                        glowLayer.addIncludedOnlyMesh(largerBody.mesh);
+                        if(glowLayer) glowLayer.addIncludedOnlyMesh(largerBody.mesh);
                         setTimeout(() => {
                             if (largerBody.mesh && largerBody.mesh.material) {
                                 largerBody.mesh.material.emissiveColor.set(0,0,0);
-                                if (glowLayer.hasMesh(largerBody.mesh)) {
+                                if (glowLayer && glowLayer.hasMesh(largerBody.mesh)) {
                                    glowLayer.removeIncludedOnlyMesh(largerBody.mesh);
                                 }
                             }
                         }, 1500);
                     }
-
                     createFragments(impactPoint, smallerBody.impostor.mass, combinedVelocity, impactEnergy);
                     setTimeout(() => {
-                       destroyBody(smallerBody);
+                        logToScreen(`handleCollision (timeout): Destroying smaller body ${smallerBody.initialParams.name} (absorbed)`, "info");
+                        destroyBody(smallerBody);
                     }, 0);
                 }
             }
+        } else {
+            logToScreen(`handleCollision: Impact energy ${impactEnergy.toFixed(2)} is below threshold. No destructive effects.`, "info");
         }
     }
 
